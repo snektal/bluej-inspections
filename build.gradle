@@ -1,0 +1,39 @@
+plugins {
+    id 'org.jetbrains.intellij' version '0.4.2'
+}
+
+group 'com.chase.dps.plugin'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+configurations {
+    // configuration that holds jars to include in the jar
+    extraLibs
+    bluejLibs
+}
+
+dependencies {
+    compile 'com.chase.bluej.core:bluej-annotations:1.0-SNAPSHOT'
+    compile 'org.springframework:spring-web:4.1.6.RELEASE'
+    extraLibs group: 'org.springframework' , name: 'spring-web', version: '4.1.6.RELEASE'
+    bluejLibs group: 'com.chase.bluej.core' , name: 'bluej-annotations', version: '1.0-SNAPSHOT'
+    configurations.compile.extendsFrom(configurations.extraLibs)
+    configurations.compile.extendsFrom(configurations.bluejLibs)
+}
+
+jar {
+    from {
+        configurations.extraLibs.collect { it.isDirectory() ? it : zipTree(it) }
+        configurations.bluejLibs.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+intellij {
+    updateSinceUntilBuild false
+}
