@@ -4,51 +4,44 @@ import com.chase.digital.bluej.annotations.apidocs.ApiDocs;
 import com.chase.digital.bluej.annotations.stereotype.BlueJController;
 import com.chase.dps.plugin.inspections.fixes.InsertAnnotationFix;
 import com.intellij.codeInspection.InspectionManager;
-import com.intellij.codeInspection.LocalQuickFix;
-import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiAnnotation;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.web.bind.annotation.RequestMapping;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public final class ControllerClassProblemDescriptors extends ProblemDescriptors {
 
+    private static final String[] requiredAnnotations = {
+            "BlueJController",
+            "RequestMapping",
+            "ApiDocs"};
 
-    private List<LocalQuickFix> fixes = new ArrayList<>();
+    private final InsertAnnotationFix[] fixes = {
+            new InsertAnnotationFix(BlueJController.class, "", insertFirst),
+            new InsertAnnotationFix(RequestMapping.class, "( value = \"/\")", insertLast),
+            new InsertAnnotationFix(ApiDocs.class, "( value = {PROVIDE DOCUMENTATION DETAILS}, tags = {PROVIDE VALUE HERE})", insertLast)};
+
     private PsiClass aClass;
 
-    public ControllerClassProblemDescriptors(@NotNull PsiClass aClass, @NotNull InspectionManager manager, boolean hasAnnotation) {
+    public ControllerClassProblemDescriptors(@NotNull PsiClass aClass, @NotNull InspectionManager manager) {
 
         super(manager);
         this.aClass = aClass;
 
-        if (!hasAnnotation) {
-            fixes.add(new InsertAnnotationFix(BlueJController.class, insertFirst));
+    }
 
-        }
-        fixes.add(new InsertAnnotationFix(RequestMapping.class, insertFirst));
-        fixes.add(new InsertAnnotationFix(ApiDocs.class, insertFirst));
+    @NotNull
+    @Override
+    public PsiAnnotation[] getMissingAnnotations() {
+        return getMissingAnnotations(this.aClass, fixes, requiredAnnotations);
     }
 
     @NotNull
     public ControllerClassProblemDescriptors add(@NotNull PsiElement element, @NotNull String message) {
-        descriptors.add(manager.createProblemDescriptor(element, message, toArray(fixes), HIGHLIGHT_TYPE, false, false));
+        descriptors.add(manager.createProblemDescriptor(element, message, fixes, HIGHLIGHT_TYPE, false, false));
         return this;
     }
 
-    @Nullable
-    public LocalQuickFix[] toArray(List<LocalQuickFix> fixes) {
-        return descriptors.isEmpty() ? null : fixes.toArray(new LocalQuickFix[fixes.size()]);
-    }
 
-    public PsiAnnotation[] getRegisteredAnnotations() {
-        return (PsiAnnotation[]) fixes.stream().map(fix -> JavaPsiFacade.getInstance(manager.getProject()).getElementFactory()
-                .createAnnotationFromText(((InsertAnnotationFix) fix).getFamilyName(), aClass)).collect(Collectors.toList()).toArray();
-    }
 }

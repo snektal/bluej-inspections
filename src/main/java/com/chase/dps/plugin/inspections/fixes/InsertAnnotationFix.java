@@ -13,12 +13,21 @@ import org.jetbrains.annotations.NotNull;
 public final class InsertAnnotationFix implements LocalQuickFix {
   @NotNull
   private final String annotationText;
+
+  @NotNull
+  private final String annotationBody;
+
+  @NotNull
+  private final String annotationClassName;
+
   @NotNull
   private final InsertionPlace place;
 
-  public InsertAnnotationFix(@NotNull Class<?> annotationClass, boolean insertFirst) {
-    this.annotationText = '@' + annotationClass.getSimpleName();
-    this.place = insertFirst ? InsertionPlace.FIRST : InsertionPlace.LAST;
+  public InsertAnnotationFix(@NotNull Class<?> annotationClass, @NotNull String annotationBody, boolean insertFirst) {
+    this.annotationClassName = annotationClass.getSimpleName();
+    this.annotationText = '@' + annotationClassName + annotationBody;
+    this.annotationBody = annotationBody;
+    this.place = insertFirst ? InsertionPlace.FIRST : InsertionPlace.BEFORE_LAST;
   }
 
   @Override
@@ -31,6 +40,11 @@ public final class InsertAnnotationFix implements LocalQuickFix {
   @NotNull
   public String getFamilyName() {
     return annotationText;
+  }
+
+  @NotNull
+  public String getAnnotationClassName() {
+    return annotationClassName;
   }
 
   @Override
@@ -55,10 +69,10 @@ public final class InsertAnnotationFix implements LocalQuickFix {
       }
     },
 
-    LAST {
+    BEFORE_LAST {
       @Override
       public void insert(@NotNull PsiModifierList modifiers, @NotNull PsiAnnotation annotation) {
-        modifiers.addAfter(annotation, modifiers.getLastChild());
+        modifiers.addBefore(annotation, modifiers.getLastChild());
       }
     };
 

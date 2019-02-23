@@ -8,18 +8,17 @@ import java.lang.annotation.Annotation;
 import java.util.Optional;
 
 public interface AnnotationsOwner {
-    @NotNull
-    AnnotationsOwner empty = annotation -> false;
 
     @SuppressWarnings("StaticMethodNamingConvention")
     @NotNull
     static AnnotationsOwner of(@NotNull PsiModifierListOwner element) {
-        return Optional.ofNullable(element.getModifierList()).map(modifiers -> (AnnotationsOwner) new Wrapper(modifiers)).orElse(empty);
+        return Optional.ofNullable(element.getModifierList()).map(modifiers -> (AnnotationsOwner) new Wrapper(modifiers)).orElse(annotation -> false);
     }
 
-    boolean has(@NotNull Class<? extends Annotation> annotation);
+    boolean missing(@NotNull Class<? extends Annotation> annotation);
 
     final class Wrapper implements AnnotationsOwner {
+
         @NotNull
         private final PsiModifierList modifiers;
 
@@ -28,8 +27,8 @@ public interface AnnotationsOwner {
         }
 
         @Override
-        public boolean has(@NotNull Class<? extends Annotation> annotation) {
-            return modifiers.findAnnotation(annotation.getCanonicalName()) != null;
+        public boolean missing(@NotNull Class<? extends Annotation> annotation) {
+            return modifiers.findAnnotation(annotation.getCanonicalName()) == null;
         }
     }
 }

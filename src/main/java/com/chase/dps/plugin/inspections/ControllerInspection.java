@@ -7,7 +7,7 @@ import com.chase.dps.plugin.inspections.descriptors.ControllerClassProblemDescri
 import com.chase.dps.plugin.inspections.descriptors.ControllerMethodProblemDescriptors;
 import com.chase.dps.plugin.inspections.descriptors.ProblemDescriptors;
 import com.intellij.codeInsight.daemon.GroupNames;
-import com.intellij.codeInspection.BaseJavaLocalInspectionTool;
+import com.intellij.codeInspection.AbstractBaseJavaLocalInspectionTool;
 import com.intellij.codeInspection.InspectionManager;
 import com.intellij.codeInspection.ProblemDescriptor;
 import com.intellij.codeInspection.ui.SingleCheckboxOptionsPanel;
@@ -25,12 +25,14 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 import javax.swing.*;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiPredicate;
 
-public class ControllerInspection extends BaseJavaLocalInspectionTool {
+public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
 
     private static final ProblemDescriptor[] NO_DESCRIPTORS = {};
+
     @Override
     @NotNull
     public JComponent createOptionsPanel() {
@@ -71,20 +73,19 @@ public class ControllerInspection extends BaseJavaLocalInspectionTool {
         }
         if (aClass.getName() != null &&
                 !aClass.getName().contains("Controller")) {
-            return NO_DESCRIPTORS ;
+            return NO_DESCRIPTORS;
         }
 
-        if (aClass.hasAnnotation("BlueJController")) {
-            final ProblemDescriptors descriptors = new ControllerClassProblemDescriptors(aClass, manager, true);
-            for (PsiAnnotation annotation : aClass.getAnnotations()) {
-                Problem.checkFor(aClass, annotation)
-                        .ifPresent(problem -> descriptors.add(aClass, problem.message));
+            final ProblemDescriptors descriptors = new ControllerClassProblemDescriptors(aClass, manager);
+
+            for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
+                if (annotation != null)
+                    ClassProblem.checkFor(aClass, annotation)
+                            .ifPresent(problem -> descriptors.add(aClass, problem.message));
 
             }
-
             return descriptors.toArray();
-        }
-        return NO_DESCRIPTORS;
+
     }
 
     @Nullable
@@ -97,34 +98,86 @@ public class ControllerInspection extends BaseJavaLocalInspectionTool {
         if (!containingClass.isInterface())
             return NO_DESCRIPTORS;
 
-
-        if (containingClass.getName() != null &&
-                !containingClass.getName().contains("Controller")) {
+        if (!containingClass.hasAnnotation("com.chase.digital.bluej.annotations.stereotype.BlueJController")) {
             return NO_DESCRIPTORS;
         }
 
         final ProblemDescriptors descriptors = new ControllerMethodProblemDescriptors(method, manager);
-        PsiAnnotation[] annotations = method.getAnnotations();
-        if (annotations.length == 0) {
-            annotations = descriptors.getRegisteredAnnotations();
 
-        }
-        for (PsiAnnotation annotation : annotations) {
-            Problem.checkFor(method, annotation)
-                    .ifPresent(problem -> descriptors.add(method, problem.message));
+        for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
+            if (annotation != null)
+                MethodProblem.checkFor(method, annotation)
+                        .ifPresent(problem -> descriptors.add(method, problem.message));
         }
 
         return descriptors.toArray();
     }
 
-    private enum Problem implements BiPredicate<PsiModifierListOwner, PsiAnnotation> {
+    private enum MethodProblem implements BiPredicate<PsiModifierListOwner, PsiAnnotation> {
+
+        METHOD_IS_MISSING_REQUESTMAPPING_ANNOTATION("Method is missing @RequestMapping annotation") {
+            @Override
+            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+
+                final AnnotationsOwner owner = AnnotationsOwner.of(member);
+                return owner.missing(RequestMapping.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("RequestMapping");
+            }
+        },
+
+        METHOD_IS_MISSING_RESPONSESTATUS_ANNOTATION("Method is missing @ResponseStatus annotation") {
+            @Override
+            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+
+                final AnnotationsOwner owner = AnnotationsOwner.of(member);
+                return owner.missing(ResponseStatus.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("ResponseStatus");
+            }
+        },
+        METHOD_IS_MISSING_RESPONSEBODY_ANNOTATION("Method is missing @ResponseBody annotation") {
+            @Override
+            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+
+                final AnnotationsOwner owner = AnnotationsOwner.of(member);
+                return owner.missing(ResponseBody.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("ResponseBody");
+            }
+        },
+        METHOD_IS_MISSING_APIDOCS_ANNOTATION("Method is missing @ApiDocs annotation") {
+            @Override
+            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+
+                final AnnotationsOwner owner = AnnotationsOwner.of(member);
+                return owner.missing(ApiDocs.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("ApiDocs");
+            }
+        },
+        METHOD_IS_MISSING_SECURITYPOLICY_ANNOTATION("Method is missing @SecurityPolicy annotation") {
+            @Override
+            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+
+                final AnnotationsOwner owner = AnnotationsOwner.of(member);
+                return owner.missing(SecurityPolicy.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("SecurityPolicy");
+            }
+        };
+
+        @NotNull
+        private final String message;
+
+        @NotNull
+        public static Optional<MethodProblem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+            return Arrays.stream(MethodProblem.values()).filter(problem -> problem.test(member, annotation)).findFirst();
+        }
+
+        MethodProblem(@NotNull String message) {
+            this.message = message;
+        }
+    }
+
+    private enum ClassProblem implements BiPredicate<PsiModifierListOwner, PsiAnnotation> {
 
         CLASS_IS_MISSING_BLUEJCONTROLLER_ANNOTATION("Class is missing @BlueJController annotation") {
             @Override
             public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
 
                 final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(BlueJController.class);
+                return owner.missing(BlueJController.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("BlueJController");
             }
         },
 
@@ -134,7 +187,7 @@ public class ControllerInspection extends BaseJavaLocalInspectionTool {
             public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
 
                 final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(RequestMapping.class);
+                return owner.missing(RequestMapping.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("RequestMapping");
             }
         },
 
@@ -143,49 +196,7 @@ public class ControllerInspection extends BaseJavaLocalInspectionTool {
             public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
 
                 final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(ApiDocs.class);
-            }
-        },
-
-        METHOD_IS_MISSING_REQUESTMAPPING_ANNOTATION("Method is missing @RequestMapping annotation") {
-            @Override
-            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
-
-                final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(RequestMapping.class);
-            }
-        },
-
-        METHOD_IS_MISSING_RESPONSESTATUS_ANNOTATION("Method is missing @ResponseStatus annotation") {
-            @Override
-            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
-
-                final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(ResponseStatus.class);
-            }
-        },
-        METHOD_IS_MISSING_RESPONSEBODY_ANNOTATION("Method is missing @ResponseBody annotation") {
-            @Override
-            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
-
-                final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(ResponseBody.class);
-            }
-        },
-        METHOD_IS_MISSING_APIDOCS_ANNOTATION("Method is missing @ApiDocs annotation") {
-            @Override
-            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
-
-                final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(ApiDocs.class);
-            }
-        },
-        METHOD_IS_MISSING_SECURITYPOLICY_ANNOTATION("Method is missing @SecurityPolicy annotation") {
-            @Override
-            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
-
-                final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return !owner.has(SecurityPolicy.class);
+                return owner.missing(ApiDocs.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("ApiDocs");
             }
         };
 
@@ -193,11 +204,11 @@ public class ControllerInspection extends BaseJavaLocalInspectionTool {
         private final String message;
 
         @NotNull
-        public static Optional<Problem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
-            return Arrays.stream(Problem.values()).filter(problem -> problem.test(member, annotation)).findFirst();
+        public static Optional<ClassProblem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+            return Arrays.stream(ClassProblem.values()).filter(problem -> problem.test(member, annotation)).findFirst();
         }
 
-        Problem(@NotNull String message) {
+        ClassProblem(@NotNull String message) {
             this.message = message;
         }
     }
