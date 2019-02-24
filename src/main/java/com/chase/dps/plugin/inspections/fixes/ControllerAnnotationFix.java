@@ -9,7 +9,7 @@ import com.intellij.psi.PsiElement;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
 
-public final class ControllerAnnotationFix implements LocalQuickFix {
+final class ControllerAnnotationFix implements LocalQuickFix {
 
     @Override
     @NotNull

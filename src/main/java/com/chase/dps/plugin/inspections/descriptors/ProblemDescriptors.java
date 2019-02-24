@@ -43,32 +43,76 @@ public abstract class ProblemDescriptors {
     }
 
     @NotNull
-    public abstract ProblemDescriptors add(@NotNull PsiElement element, @NotNull String message) ;
+    public abstract ProblemDescriptors add(@NotNull PsiElement element, @NotNull PsiAnnotation annotation,  @NotNull String message) ;
 
     @NotNull
     public abstract PsiAnnotation[] getMissingAnnotations() ;
 
     @NotNull
     PsiAnnotation[] getMissingAnnotations(@NotNull PsiModifierListOwner element, InsertAnnotationFix[] fixes, String[] requiredAnnotations)  {
-        PsiAnnotation[] annotations = element.getAnnotations();
-        // get names of annotations that missing
-        List<String> existing = Arrays.stream(annotations)
-                .map(a-> a.getQualifiedName().substring(Objects.requireNonNull(a.getQualifiedName()).lastIndexOf('.') + 1))
-                .collect(Collectors.toList());
+        List<String> existing = getExistingAnnotationNames(element);
 
         List<PsiAnnotation> list = new ArrayList<>();
-        Arrays.stream(requiredAnnotations).filter(name-> !existing.contains(name)).forEach(name-> {
-            for (InsertAnnotationFix fix : fixes) {
-                if (fix.getAnnotationClassName().equals(name)) {
-                    PsiAnnotation annotation = JavaPsiFacade
-                            .getInstance(manager.getProject())
-                            .getElementFactory()
-                            .createAnnotationFromText(fix.getFamilyName(), element);
-                    list.add(annotation);
-                }
+        for (String name : requiredAnnotations) {
+            if (!existing.contains(name)) {
+                createPsiAnnotations(element, fixes, list, name);
             }
-        });
+        }
         return list.toArray(new PsiAnnotation[fixes.length]);
+    }
+
+    @NotNull
+    public abstract PsiAnnotation[] getExistingAnnotations() ;
+
+    @NotNull
+    PsiAnnotation[] getExistingAnnotations(@NotNull PsiModifierListOwner element, InsertAnnotationFix[] fixes, String[] requiredAnnotations)  {
+        List<String> existing = getExistingAnnotationNames(element);
+
+        List<PsiAnnotation> list = new ArrayList<>();
+        for (String name : requiredAnnotations) {
+            if (existing.contains(name)) {
+                createPsiAnnotations(element, fixes, list, name);
+            }
+        }
+        return list.toArray(new PsiAnnotation[fixes.length]);
+    }
+
+    @NotNull
+    private List<String> getExistingAnnotationNames(@NotNull PsiModifierListOwner element) {
+        PsiAnnotation[] annotations = element.getAnnotations();
+        // get names of annotations that missing
+        return Arrays.stream(annotations)
+                .map(this::getAnnotationName)
+                .collect(Collectors.toList());
+    }
+
+    @NotNull
+    private String getAnnotationName(PsiAnnotation a) {
+        return a.getQualifiedName().substring(Objects.requireNonNull(a.getQualifiedName()).lastIndexOf('.') + 1);
+    }
+
+    private void createPsiAnnotations(@NotNull PsiModifierListOwner element, InsertAnnotationFix[] fixes, List<PsiAnnotation> list, String name) {
+        for (InsertAnnotationFix fix : fixes) {
+            if (fix.getAnnotationClassName().equals(name)) {
+                PsiAnnotation annotation = JavaPsiFacade
+                        .getInstance(manager.getProject())
+                        .getElementFactory()
+                        .createAnnotationFromText(fix.getFamilyName(), element);
+                list.add(annotation);
+            }
+        }
+    }
+
+    protected InsertAnnotationFix[] getFilteredAnnotationFixes(InsertAnnotationFix[] fixes, @NotNull PsiAnnotation annotation) {
+        String annotationName = getAnnotationName(annotation);
+        List<InsertAnnotationFix> filteredAnnotationFixes = new ArrayList<>();
+        for (InsertAnnotationFix fix : fixes) {
+            if (fix.getAnnotationClassName().equals(annotationName)) {
+
+                filteredAnnotationFixes.add(fix);
+            }
+        }
+        return filteredAnnotationFixes.toArray(new InsertAnnotationFix[filteredAnnotationFixes.size()]);
     }
 
     @Nullable

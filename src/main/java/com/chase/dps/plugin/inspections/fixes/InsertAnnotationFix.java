@@ -76,6 +76,6 @@ public final class InsertAnnotationFix implements LocalQuickFix {
       }
     };
 
-    public abstract void insert(@NotNull PsiModifierList modifiers, @NotNull PsiAnnotation annotation);
+    protected abstract void insert(@NotNull PsiModifierList modifiers, @NotNull PsiAnnotation annotation);
   }
 }

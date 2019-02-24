@@ -3,7 +3,7 @@
     <name>DPS Inspections</name>
     <vendor email="simon.nektalov@chase.com" url="http://www.chase.com">JPMorgan Chase</vendor>
 
-    <description>Custom DPS Inspections
+    <description>Custom DPS Inspections to suggest injection of annotations in a class
     </description>
 
     <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html

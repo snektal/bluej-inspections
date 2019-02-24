@@ -76,15 +76,10 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
             return NO_DESCRIPTORS;
         }
 
-            final ProblemDescriptors descriptors = new ControllerClassProblemDescriptors(aClass, manager);
+        final ProblemDescriptors descriptors = new ControllerClassProblemDescriptors(aClass, manager);
 
-            for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
-                if (annotation != null)
-                    ClassProblem.checkFor(aClass, annotation)
-                            .ifPresent(problem -> descriptors.add(aClass, problem.message));
-
-            }
-            return descriptors.toArray();
+        checkClassMissingAnnotations(aClass, descriptors);
+        return descriptors.toArray();
 
     }
 
@@ -98,19 +93,41 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
         if (!containingClass.isInterface())
             return NO_DESCRIPTORS;
 
-        if (!containingClass.hasAnnotation("com.chase.digital.bluej.annotations.stereotype.BlueJController")) {
-            return NO_DESCRIPTORS;
-        }
-
         final ProblemDescriptors descriptors = new ControllerMethodProblemDescriptors(method, manager);
-
-        for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
-            if (annotation != null)
-                MethodProblem.checkFor(method, annotation)
-                        .ifPresent(problem -> descriptors.add(method, problem.message));
+        Boolean hasControllerAnnotation = containingClass.hasAnnotation("com.chase.digital.bluej.annotations.stereotype.BlueJController");
+        if (!hasControllerAnnotation) {
+            checkInvalidAnnotations(method, descriptors, hasControllerAnnotation);
+        }
+        else {
+            checkMissingAnnotations(method, descriptors);
         }
 
         return descriptors.toArray();
+    }
+
+    private void checkClassMissingAnnotations(@NotNull PsiClass aClass, ProblemDescriptors descriptors) {
+        for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
+            if (annotation != null)
+                ClassProblem.checkFor(aClass, annotation)
+                        .ifPresent(problem -> descriptors.add(aClass, annotation, problem.message));
+
+        }
+    }
+
+    private void checkMissingAnnotations(@NotNull PsiMethod method, ProblemDescriptors descriptors) {
+        for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
+            if (annotation != null)
+                MethodProblem.checkFor(method, annotation)
+                        .ifPresent(problem -> descriptors.add(method, annotation, problem.message));
+        }
+    }
+
+    private void checkInvalidAnnotations(@NotNull PsiMethod method, ProblemDescriptors descriptors, Boolean hasControllerAnnotation) {
+        for (PsiAnnotation annotation : descriptors.getExistingAnnotations()) {
+            if (annotation != null)
+                InvalidAnnotationProblem.checkFor(method, annotation, hasControllerAnnotation)
+                        .ifPresent(problem -> descriptors.add(method, annotation, problem.message));
+        }
     }
 
     private enum MethodProblem implements BiPredicate<PsiModifierListOwner, PsiAnnotation> {
@@ -161,12 +178,42 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
         private final String message;
 
         @NotNull
-        public static Optional<MethodProblem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+        static Optional<MethodProblem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
             return Arrays.stream(MethodProblem.values()).filter(problem -> problem.test(member, annotation)).findFirst();
         }
 
         MethodProblem(@NotNull String message) {
             this.message = message;
+        }
+    }
+
+    private enum InvalidAnnotationProblem implements TriPredicate< PsiModifierListOwner, PsiAnnotation, Boolean > {
+
+        METHOD_HAS_INVALID_ANNOTATION() {
+            @Override
+            public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation, Boolean hasControllerAnnotation ) {
+                if (!hasControllerAnnotation.booleanValue() )
+                {
+                    this.setMessage("Method has invalid annotation - " + annotation.getQualifiedName().substring(annotation.getQualifiedName().lastIndexOf('.') + 1));
+                    return true;
+                }
+                return false;
+            }
+        };
+
+        private String message;
+
+
+        void setMessage(@NotNull String message) {
+            this.message = message;
+        }
+
+        @NotNull
+        static Optional<InvalidAnnotationProblem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation, boolean hasControllerAnnotation) {
+            return Arrays.stream(InvalidAnnotationProblem.values()).filter(problem -> problem.test( member, annotation, hasControllerAnnotation)).findFirst();
+        }
+
+        InvalidAnnotationProblem() {
         }
     }
 
@@ -185,9 +232,10 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
         CLASS_IS_MISSING_REQUESTMAPPING_ANNOTATION("Class is missing @RequestMapping annotation") {
             @Override
             public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
-
                 final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return owner.missing(RequestMapping.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("RequestMapping");
+                if (!owner.missing(BlueJController.class))
+                    return owner.missing(RequestMapping.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("RequestMapping");
+                return false;
             }
         },
 
@@ -196,7 +244,9 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
             public boolean test(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
 
                 final AnnotationsOwner owner = AnnotationsOwner.of(member);
-                return owner.missing(ApiDocs.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("ApiDocs");
+                if (!owner.missing(BlueJController.class))
+                    return owner.missing(ApiDocs.class) && Objects.requireNonNull(annotation.getQualifiedName()).contains("ApiDocs");
+                return false;
             }
         };
 
@@ -204,7 +254,7 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
         private final String message;
 
         @NotNull
-        public static Optional<ClassProblem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
+        static Optional<ClassProblem> checkFor(@NotNull PsiModifierListOwner member, @NotNull PsiAnnotation annotation) {
             return Arrays.stream(ClassProblem.values()).filter(problem -> problem.test(member, annotation)).findFirst();
         }
 

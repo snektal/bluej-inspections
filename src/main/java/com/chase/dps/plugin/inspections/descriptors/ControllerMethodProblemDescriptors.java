@@ -47,8 +47,17 @@ public final class ControllerMethodProblemDescriptors extends ProblemDescriptors
     }
 
     @NotNull
-    public ControllerMethodProblemDescriptors add(@NotNull PsiElement element, @NotNull String message) {
-        descriptors.add(manager.createProblemDescriptor(element, message, fixes, HIGHLIGHT_TYPE, false, false));
+    @Override
+    public PsiAnnotation[] getExistingAnnotations() {
+        return getExistingAnnotations(this.method, fixes, requiredAnnotations);
+    }
+
+
+
+    @NotNull
+    public ControllerMethodProblemDescriptors add(@NotNull PsiElement element, @NotNull PsiAnnotation annotation, @NotNull String message) {
+        InsertAnnotationFix[] filteredAnnotationFixes = getFilteredAnnotationFixes(fixes, annotation);
+        descriptors.add(manager.createProblemDescriptor(element, message, filteredAnnotationFixes, HIGHLIGHT_TYPE, false, false));
         return this;
     }
 
