@@ -45,8 +45,11 @@ public final class ControllerClassProblemDescriptors extends ProblemDescriptors 
 
 
     @NotNull
-    public ControllerClassProblemDescriptors add(@NotNull PsiElement element, @NotNull PsiAnnotation annotation, @NotNull String message) {
-        InsertAnnotationFix[] filteredAnnotationFixes = getFilteredAnnotationFixes(fixes, annotation);
+    public ControllerClassProblemDescriptors add(@NotNull PsiElement element, @NotNull PsiAnnotation annotation, @NotNull String message, boolean filterFixes) {
+        InsertAnnotationFix[] filteredAnnotationFixes = fixes;
+        if(filterFixes) {
+            filteredAnnotationFixes = getFilteredAnnotationFixes(fixes, annotation);
+        }
         descriptors.add(manager.createProblemDescriptor(element, message, filteredAnnotationFixes, HIGHLIGHT_TYPE, false, false));
         return this;
     }

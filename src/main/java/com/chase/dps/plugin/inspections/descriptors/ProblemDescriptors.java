@@ -43,7 +43,7 @@ public abstract class ProblemDescriptors {
     }
 
     @NotNull
-    public abstract ProblemDescriptors add(@NotNull PsiElement element, @NotNull PsiAnnotation annotation,  @NotNull String message) ;
+    public abstract ProblemDescriptors add(@NotNull PsiElement element, @NotNull PsiAnnotation annotation,  @NotNull String message, boolean filterFixes) ;
 
     @NotNull
     public abstract PsiAnnotation[] getMissingAnnotations() ;

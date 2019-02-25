@@ -94,7 +94,8 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
             return NO_DESCRIPTORS;
 
         final ProblemDescriptors descriptors = new ControllerMethodProblemDescriptors(method, manager);
-        Boolean hasControllerAnnotation = containingClass.hasAnnotation("com.chase.digital.bluej.annotations.stereotype.BlueJController");
+        Boolean hasControllerAnnotation = containingClass.hasAnnotation("com.chase.digital.bluej.annotations.stereotype.BlueJController") && containingClass.hasAnnotation("org.springframework.web.bind.annotation.RequestMapping");
+
         if (!hasControllerAnnotation) {
             checkInvalidAnnotations(method, descriptors, hasControllerAnnotation);
         }
@@ -109,7 +110,7 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
         for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
             if (annotation != null)
                 ClassProblem.checkFor(aClass, annotation)
-                        .ifPresent(problem -> descriptors.add(aClass, annotation, problem.message));
+                        .ifPresent(problem -> descriptors.add(aClass, annotation, problem.message, true));
 
         }
     }
@@ -118,7 +119,7 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
         for (PsiAnnotation annotation : descriptors.getMissingAnnotations()) {
             if (annotation != null)
                 MethodProblem.checkFor(method, annotation)
-                        .ifPresent(problem -> descriptors.add(method, annotation, problem.message));
+                        .ifPresent(problem -> descriptors.add(method, annotation, problem.message, true));
         }
     }
 
@@ -126,7 +127,7 @@ public class ControllerInspection extends AbstractBaseJavaLocalInspectionTool {
         for (PsiAnnotation annotation : descriptors.getExistingAnnotations()) {
             if (annotation != null)
                 InvalidAnnotationProblem.checkFor(method, annotation, hasControllerAnnotation)
-                        .ifPresent(problem -> descriptors.add(method, annotation, problem.message));
+                        .ifPresent(problem -> descriptors.add(method, annotation, problem.message, false));
         }
     }
 
